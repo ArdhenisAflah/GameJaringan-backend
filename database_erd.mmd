@@ -1,0 +1,53 @@
+erDiagram
+    USERS ||--|| PLAYER_PROFILES : has_profile
+    FARM_RANKS ||--o{ PLAYER_PROFILES : determines_rank
+    USERS ||--o{ SCORES : earns_scores
+    GAME_SESSIONS ||--o{ SCORES : records_session
+
+    USERS {
+        int id PK
+        string username UK
+        string password_hash
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    PLAYER_PROFILES {
+        int id PK
+        int user_id FK
+        int current_rank_id FK
+        string nickname
+        date birth_date
+        int farms_managed_count
+        int total_orders_completed
+        int highest_score
+    }
+
+    FARM_RANKS {
+        int id PK
+        string rank_name
+        int min_orders_required
+        int tier_level
+        string badge_icon_url
+    }
+
+    GAME_SESSIONS {
+        string id PK
+        string lobby_id
+        string match_result
+        int total_orders_delivered
+        int total_orders_failed
+        int duration_seconds
+        timestamp started_at
+        timestamp ended_at
+    }
+
+    SCORES {
+        int id PK
+        int user_id FK
+        string session_id FK
+        int individual_score
+        int crops_harvested
+        int orders_loaded
+        timestamp recorded_at
+    }

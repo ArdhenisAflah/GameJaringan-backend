@@ -1,0 +1,62 @@
+<mxfile host="app.diagrams.net" modified="2026-10-17T13:26:00.000Z" agent="5.0" etag="eden-farm" version="21.6.8" type="device">
+  <diagram id="eden-farm-erd" name="Eden Farm ERD">
+    <mxGraphModel dx="1200" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1169" pageHeight="827" background="#ffffff" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- Title -->
+        <mxCell id="title" value="&lt;b&gt;&lt;font style=&quot;font-size: 18px;&quot;&gt;Eden Farm - Database Entity Relationship Diagram (ERD)&lt;/font&gt;&lt;/b&gt;" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" vertex="1" parent="1">
+          <mxGeometry x="320" y="30" width="520" height="30" as="geometry" />
+        </mxCell>
+
+        <!-- USERS TABLE -->
+        <mxCell id="tbl_users" value="&lt;b&gt;USERS&lt;/b&gt;&lt;hr/&gt;+ id: INT [PK]&lt;br/&gt;+ username: VARCHAR(50) [UK]&lt;br/&gt;+ password_hash: VARCHAR(255)&lt;br/&gt;+ created_at: TIMESTAMP&lt;br/&gt;+ updated_at: TIMESTAMP" style="swimlane;fontStyle=0;childLayout=stackLayout;horizontal=1;startSize=26;fillColor=#d5e8d4;strokeColor=#82b366;rounded=1;shadow=0;glass=0;align=left;spacingLeft=10;" vertex="1" parent="1">
+          <mxGeometry x="80" y="100" width="220" height="130" as="geometry" />
+        </mxCell>
+
+        <!-- PLAYER_PROFILES TABLE -->
+        <mxCell id="tbl_profiles" value="&lt;b&gt;PLAYER_PROFILES&lt;/b&gt;&lt;hr/&gt;+ id: INT [PK]&lt;br/&gt;+ user_id: INT [FK]&lt;br/&gt;+ current_rank_id: INT [FK]&lt;br/&gt;+ nickname: VARCHAR(50)&lt;br/&gt;+ birth_date: DATE&lt;br/&gt;+ farms_managed_count: INT&lt;br/&gt;+ total_orders_completed: INT&lt;br/&gt;+ highest_score: INT" style="swimlane;fontStyle=0;childLayout=stackLayout;horizontal=1;startSize=26;fillColor=#dae8fc;strokeColor=#6c8ebf;rounded=1;shadow=0;glass=0;align=left;spacingLeft=10;" vertex="1" parent="1">
+          <mxGeometry x="440" y="100" width="240" height="180" as="geometry" />
+        </mxCell>
+
+        <!-- FARM_RANKS TABLE -->
+        <mxCell id="tbl_ranks" value="&lt;b&gt;FARM_RANKS&lt;/b&gt;&lt;hr/&gt;+ id: INT [PK]&lt;br/&gt;+ rank_name: VARCHAR(30)&lt;br/&gt;+ min_orders_required: INT&lt;br/&gt;+ tier_level: INT&lt;br/&gt;+ badge_icon_url: VARCHAR(255)" style="swimlane;fontStyle=0;childLayout=stackLayout;horizontal=1;startSize=26;fillColor=#fff2cc;strokeColor=#d6b656;rounded=1;shadow=0;glass=0;align=left;spacingLeft=10;" vertex="1" parent="1">
+          <mxGeometry x="800" y="100" width="220" height="130" as="geometry" />
+        </mxCell>
+
+        <!-- SCORES TABLE -->
+        <mxCell id="tbl_scores" value="&lt;b&gt;SCORES&lt;/b&gt;&lt;hr/&gt;+ id: INT [PK]&lt;br/&gt;+ user_id: INT [FK]&lt;br/&gt;+ session_id: VARCHAR(64) [FK]&lt;br/&gt;+ individual_score: INT&lt;br/&gt;+ crops_harvested: INT&lt;br/&gt;+ orders_loaded: INT&lt;br/&gt;+ recorded_at: TIMESTAMP" style="swimlane;fontStyle=0;childLayout=stackLayout;horizontal=1;startSize=26;fillColor=#e1d5e7;strokeColor=#9673a6;rounded=1;shadow=0;glass=0;align=left;spacingLeft=10;" vertex="1" parent="1">
+          <mxGeometry x="80" y="360" width="240" height="160" as="geometry" />
+        </mxCell>
+
+        <!-- GAME_SESSIONS TABLE -->
+        <mxCell id="tbl_sessions" value="&lt;b&gt;GAME_SESSIONS&lt;/b&gt;&lt;hr/&gt;+ id: VARCHAR(64) [PK]&lt;br/&gt;+ lobby_id: VARCHAR(128)&lt;br/&gt;+ match_result: VARCHAR(20)&lt;br/&gt;+ total_orders_delivered: INT&lt;br/&gt;+ total_orders_failed: INT&lt;br/&gt;+ duration_seconds: INT&lt;br/&gt;+ started_at: TIMESTAMP&lt;br/&gt;+ ended_at: TIMESTAMP" style="swimlane;fontStyle=0;childLayout=stackLayout;horizontal=1;startSize=26;fillColor=#f8cecc;strokeColor=#b85450;rounded=1;shadow=0;glass=0;align=left;spacingLeft=10;" vertex="1" parent="1">
+          <mxGeometry x="440" y="360" width="240" height="180" as="geometry" />
+        </mxCell>
+
+        <!-- Relationships -->
+        <!-- USERS to PLAYER_PROFILES (1:1) -->
+        <mxCell id="rel_users_profile" value="has profile (1:1)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;strokeWidth=2;endArrow=ERone;endFill=0;startArrow=ERone;startFill=0;" edge="1" parent="1" source="tbl_users" target="tbl_profiles">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- FARM_RANKS to PLAYER_PROFILES (1:N) -->
+        <mxCell id="rel_ranks_profile" value="determines (1:N)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;strokeWidth=2;endArrow=ERmandMany;endFill=0;startArrow=ERone;startFill=0;" edge="1" parent="1" source="tbl_ranks" target="tbl_profiles">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- USERS to SCORES (1:N) -->
+        <mxCell id="rel_users_scores" value="earns scores (1:N)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;strokeWidth=2;endArrow=ERmandMany;endFill=0;startArrow=ERone;startFill=0;" edge="1" parent="1" source="tbl_users" target="tbl_scores">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- GAME_SESSIONS to SCORES (1:N) -->
+        <mxCell id="rel_sessions_scores" value="records session (1:N)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;strokeWidth=2;endArrow=ERmandMany;endFill=0;startArrow=ERone;startFill=0;" edge="1" parent="1" source="tbl_sessions" target="tbl_scores">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
