@@ -20,6 +20,11 @@ app.use(express.json());
 // Routes / Endpoints
 // ==========================================
 
+// Route Root (Redirect / sambutan untuk akses langsung dari browser)
+app.get('/', (req, res) => {
+  res.redirect('/api/health');
+});
+
 // 1. Endpoint Health Check (Pengujian Awal Server)
 app.get('/api/health', (req, res) => {
   res.status(200).json({
