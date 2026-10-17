@@ -52,6 +52,68 @@ Server akan aktif di: `http://localhost:5000`
 
 ---
 
+## 🗄️ Perancangan Database (ERD - Eden Farm)
+
+Arsitektur database relasional ternormalisasi (3NF) untuk mendukung fitur akun, profil pemain, tier leaderboard (*farm-rank*), dan sesi multiplayer bersama (*scores & game sessions*). Dokumentasi detail tersedia di [`docs/ERD.md`](./docs/ERD.md).
+
+```mermaid
+erDiagram
+    USERS ||--|| PLAYER_PROFILES : "has_profile"
+    FARM_RANKS ||--o{ PLAYER_PROFILES : "determines_rank"
+    USERS ||--o{ SCORES : "earns_scores"
+    GAME_SESSIONS ||--o{ SCORES : "records_session"
+
+    USERS {
+        int id PK "Auto Increment"
+        string username UK "Kredensial login unik"
+        string password_hash "Bcrypt hashed password"
+        timestamp created_at "Waktu registrasi"
+        timestamp updated_at "Waktu update"
+    }
+
+    PLAYER_PROFILES {
+        int id PK "Auto Increment"
+        int user_id FK "Relasi 1:1 ke USERS"
+        int current_rank_id FK "Relasi 1:N ke FARM_RANKS"
+        string nickname "Nama display in-game"
+        date birth_date "Tanggal lahir pemain"
+        int farms_managed_count "Total sesi kebun dimainkan"
+        int total_orders_completed "Akumulasi pesanan truk sukses"
+        int highest_score "Skor tertinggi pemain"
+    }
+
+    FARM_RANKS {
+        int id PK "Identifier rank"
+        string rank_name "Nama tier leaderboard"
+        int min_orders_required "Syarat minimum pesanan"
+        int tier_level "Tingkatan tier (1-4)"
+        string badge_icon_url "Path asset badge tier"
+    }
+
+    GAME_SESSIONS {
+        string id PK "Session UUID / Room Code"
+        string lobby_id "ID Lobby UGS / Relay"
+        string match_result "Status: Victory / GameOver"
+        int total_orders_delivered "Total pesanan truk tim"
+        int total_orders_failed "Pesanan truk gagal (max 3)"
+        int duration_seconds "Durasi permainan (detik)"
+        timestamp started_at "Waktu mulai match"
+        timestamp ended_at "Waktu selesai match"
+    }
+
+    SCORES {
+        int id PK "Auto Increment"
+        int user_id FK "Relasi 1:N dari USERS"
+        string session_id FK "Relasi ke GAME_SESSIONS"
+        int individual_score "Poin kontribusi individu"
+        int crops_harvested "Tanaman yang dipanen"
+        int orders_loaded "Pesanan yang dimuat ke truk"
+        timestamp recorded_at "Waktu skor disimpan"
+    }
+```
+
+---
+
 ## 🧪 Pengujian API (Health Check)
 
 ### Menggunakan cURL:
