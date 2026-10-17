@@ -61,3 +61,30 @@ curl http://localhost:5000/api/health
 
 ### Menggunakan Browser / Postman:
 Akses URL: [http://localhost:5000/api/health](http://localhost:5000/api/health)
+
+---
+
+## 📮 Postman Workspace & Automated CLI Testing
+
+File konfigurasi Postman tersedia di folder [`postman/`](./postman):
+- **Collection:** `postman/Game_Backend_Modul8.postman_collection.json`
+- **Environment:** `postman/Local_Environment.postman_environment.json`
+
+### Menjalankan Pengujian Otomatis via Postman CLI (Newman):
+Pastikan server sedang berjalan (`npm run dev`), lalu di terminal lain jalankan:
+
+```bash
+# Menjalankan seluruh test suite (Health Check & semua Endpoint)
+npm test
+
+# Atau hanya menguji endpoint Health Check
+npm run test:health
+```
+
+### Import ke Postman GUI Desktop:
+1. Buka aplikasi **Postman**.
+2. Klik tombol **Import** di pojok kiri atas workspace Anda.
+3. Pilih file `postman/Game_Backend_Modul8.postman_collection.json` dan `postman/Local_Environment.postman_environment.json`.
+4. Pilih environment **Local Backend Environment** di kanan atas Postman.
+5. Jalankan collection via **Run Collection** untuk melihat hasil visual test runner.
+

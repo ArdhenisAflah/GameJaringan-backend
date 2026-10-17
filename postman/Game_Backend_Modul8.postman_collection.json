@@ -1,0 +1,238 @@
+{
+	"info": {
+		"_postman_id": "c1f7a0b5-7c2e-4b6f-8d2a-8d193b2a5ef1",
+		"name": "Game Backend API - Modul 8",
+		"description": "Postman Workspace Collection untuk pengujian Game Backend REST API (Node.js & Express.js) sesuai spesifikasi Modul 8.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Health Check",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Status code is 200 OK\", function () {",
+							"    pm.response.to.have.status(200);",
+							"});",
+							"",
+							"pm.test(\"Response time is within acceptable limit (<500ms)\", function () {",
+							"    pm.expect(pm.response.responseTime).to.be.below(500);",
+							"});",
+							"",
+							"pm.test(\"Response contains status: success\", function () {",
+							"    var jsonData = pm.response.json();",
+							"    pm.expect(jsonData.status).to.eql(\"success\");",
+							"});",
+							"",
+							"pm.test(\"Response contains correct success message\", function () {",
+							"    var jsonData = pm.response.json();",
+							"    pm.expect(jsonData.message).to.eql(\"Game Backend Server is running successfully!\");",
+							"});",
+							"",
+							"pm.test(\"Response contains valid ISO 8601 serverTime\", function () {",
+							"    var jsonData = pm.response.json();",
+							"    pm.expect(jsonData.serverTime).to.be.a(\"string\");",
+							"    pm.expect(isNaN(Date.parse(jsonData.serverTime))).to.be.false;",
+							"});"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/api/health",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"api",
+						"health"
+					]
+				},
+				"description": "Menguji status kesiapan dan kesehatan server game backend."
+			},
+			"response": []
+		},
+		{
+			"name": "Register Player (Draft)",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Status code is 501 Not Implemented\", function () {",
+							"    pm.response.to.have.status(501);",
+							"});",
+							"",
+							"pm.test(\"Response contains draft message\", function () {",
+							"    var jsonData = pm.response.json();",
+							"    pm.expect(jsonData.message).to.eql(\"Endpoint /api/register belum diimplementasikan\");",
+							"});"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"username\": \"player_test\",\n    \"password\": \"rahasia123\"\n}"
+				},
+				"url": {
+					"raw": "{{baseUrl}}/api/register",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"api",
+						"register"
+					]
+				},
+				"description": "Draft endpoint pendaftaran user baru."
+			},
+			"response": []
+		},
+		{
+			"name": "Login Player (Draft)",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Status code is 501 Not Implemented\", function () {",
+							"    pm.response.to.have.status(501);",
+							"});",
+							"",
+							"pm.test(\"Response contains draft message\", function () {",
+							"    var jsonData = pm.response.json();",
+							"    pm.expect(jsonData.message).to.eql(\"Endpoint /api/login belum diimplementasikan\");",
+							"});"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"username\": \"player_test\",\n    \"password\": \"rahasia123\"\n}"
+				},
+				"url": {
+					"raw": "{{baseUrl}}/api/login",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"api",
+						"login"
+					]
+				},
+				"description": "Draft endpoint autentikasi pemain."
+			},
+			"response": []
+		},
+		{
+			"name": "Save Score (Draft)",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Status code is 501 Not Implemented\", function () {",
+							"    pm.response.to.have.status(501);",
+							"});",
+							"",
+							"pm.test(\"Response contains draft message\", function () {",
+							"    var jsonData = pm.response.json();",
+							"    pm.expect(jsonData.message).to.eql(\"Endpoint /api/score/save belum diimplementasikan\");",
+							"});"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"userId\": 1,\n    \"score\": 100\n}"
+				},
+				"url": {
+					"raw": "{{baseUrl}}/api/score/save",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"api",
+						"score",
+						"save"
+					]
+				},
+				"description": "Draft endpoint penyimpanan skor akhir match pemain."
+			},
+			"response": []
+		},
+		{
+			"name": "Leaderboard (Draft)",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Status code is 501 Not Implemented\", function () {",
+							"    pm.response.to.have.status(501);",
+							"});",
+							"",
+							"pm.test(\"Response contains draft message\", function () {",
+							"    var jsonData = pm.response.json();",
+							"    pm.expect(jsonData.message).to.eql(\"Endpoint /api/leaderboard belum diimplementasikan\");",
+							"});"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/api/leaderboard",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"api",
+						"leaderboard"
+					]
+				},
+				"description": "Draft endpoint leaderboard (top 10 skor tertinggi)."
+			},
+			"response": []
+		}
+	]
+}
