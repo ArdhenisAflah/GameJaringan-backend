@@ -17,6 +17,50 @@ app.use(cors());
 // Menerima request body dengan payload berformat JSON
 app.use(express.json());
 
+// Request & Response Logging Middleware (untuk monitoring panggilan API di terminal dev)
+app.use((req, res, next) => {
+  const startTime = Date.now();
+  const method = req.method;
+  const url = req.originalUrl;
+  const ip = req.ip || req.socket?.remoteAddress;
+
+  // Mask sensitive fields seperti password pada request body log
+  let safeBody = undefined;
+  if (req.body && Object.keys(req.body).length > 0) {
+    safeBody = { ...req.body };
+    if (safeBody.password) safeBody.password = '***[PROTECTED]***';
+  }
+
+  const timestamp = new Date().toLocaleTimeString('id-ID', { hour12: false });
+  console.log(`\n\x1b[36m[${timestamp}] [REQ]\x1b[0m \x1b[1m${method}\x1b[0m ${url} from ${ip}`);
+  if (safeBody) {
+    console.log(`  \x1b[90mPayload:\x1b[0m`, JSON.stringify(safeBody));
+  }
+
+  // Intercept response res.send/res.json untuk log status code dan response body
+  const originalJson = res.json;
+  res.json = function (data) {
+    const duration = Date.now() - startTime;
+    const statusCode = res.statusCode;
+    const statusColor = statusCode >= 400 ? '\x1b[31m' : '\x1b[32m';
+
+    console.log(`\x1b[35m[${new Date().toLocaleTimeString('id-ID', { hour12: false })}] [RES]\x1b[0m ${statusColor}${statusCode}\x1b[0m ${method} ${url} \x1b[90m(${duration}ms)\x1b[0m`);
+    
+    // Tampilkan preview ringkas response
+    try {
+      const preview = typeof data === 'object' ? JSON.stringify(data) : String(data);
+      const truncated = preview.length > 250 ? preview.substring(0, 250) + '... (truncated)' : preview;
+      console.log(`  \x1b[90mResponse:\x1b[0m ${truncated}`);
+    } catch {
+      // Abaikan jika tidak bisa diserialisasi
+    }
+
+    return originalJson.call(this, data);
+  };
+
+  next();
+});
+
 // ==========================================
 // Routes / Endpoints
 // ==========================================
