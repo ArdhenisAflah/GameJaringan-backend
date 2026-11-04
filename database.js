@@ -109,6 +109,21 @@ function initDatabase() {
         FOREIGN KEY (session_id) REFERENCES game_sessions(id) ON DELETE SET NULL
       )
     `);
+
+    // 6. Tabel USER_SESSIONS (Penyimpanan Sesi / Token Aktif Pemain untuk Validasi & Device Tracking)
+    db.run(`
+      CREATE TABLE IF NOT EXISTS user_sessions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        token TEXT UNIQUE NOT NULL,
+        device_info TEXT,
+        ip_address TEXT,
+        is_active INTEGER DEFAULT 1,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        expires_at DATETIME NOT NULL,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      )
+    `);
   });
 }
 

@@ -209,27 +209,167 @@ app.post('/api/login', (req, res) => {
     };
 
     const token = jwt.sign(tokenPayload, JWT_SECRET, { expiresIn: '24h' });
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+    const deviceInfo = req.headers['user-agent'] || 'Unity Client';
+    const ipAddress = req.ip || req.socket.remoteAddress || '';
 
-    // Format response sesuai API Contract Modul 8
+    // Catat / sinkronisasi sesi aktif ke tabel user_sessions di database
+    db.run(
+      `INSERT INTO user_sessions (user_id, token, device_info, ip_address, is_active, expires_at)
+       VALUES (?, ?, ?, ?, 1, ?)`,
+      [user.userId, token, deviceInfo, ipAddress, expiresAt],
+      (sessionErr) => {
+        if (sessionErr) {
+          console.warn('⚠️ Gagal mencatat user_sessions di database:', sessionErr.message);
+        }
+
+        // Format response sesuai API Contract Modul 8
+        return res.status(200).json({
+          status: 'success',
+          message: 'Login berhasil! Selamat datang di Eden Farm.',
+          token: token,
+          userId: user.userId,
+          data: {
+            userId: user.userId,
+            username: user.username,
+            nickname: user.nickname || user.username,
+            rank: user.current_rank || 'Novice Planter',
+            tierLevel: user.tier_level || 1,
+            stats: {
+              farmsManaged: user.farms_managed_count || 0,
+              ordersCompleted: user.total_orders_completed || 0,
+              highestScore: user.highest_score || 0
+            }
+          }
+        });
+      }
+    );
+  });
+});
+
+// ==========================================
+// Session Management & Verification Endpoints
+// ==========================================
+
+// Middleware pembantu untuk mengekstrak Bearer token dari header
+function extractBearerToken(req) {
+  const authHeader = req.headers['authorization'];
+  if (!authHeader) return null;
+  const parts = authHeader.split(' ');
+  if (parts.length === 2 && parts[0].toLowerCase() === 'bearer') {
+    return parts[1];
+  }
+  return authHeader;
+}
+
+// 3.1 Endpoint Verifikasi Sesi / Auto-Login (GET /api/auth/verify)
+app.get('/api/auth/verify', (req, res) => {
+  const token = extractBearerToken(req) || req.query.token;
+
+  if (!token) {
+    return res.status(401).json({
+      status: 'error',
+      message: 'Token otentikasi tidak disediakan!'
+    });
+  }
+
+  // 1. Verifikasi integritas & masa berlaku JWT
+  jwt.verify(token, JWT_SECRET, (jwtErr, decoded) => {
+    if (jwtErr) {
+      return res.status(401).json({
+        status: 'error',
+        message: 'Sesi login telah kedaluwarsa atau token tidak valid. Silakan login kembali.',
+        error: jwtErr.message
+      });
+    }
+
+    const userId = decoded.userId;
+
+    // 2. Cek status sesi di database user_sessions (opsional verifikasi revoke/active)
+    db.get(
+      'SELECT is_active FROM user_sessions WHERE token = ?',
+      [token],
+      (sessErr, sessionRecord) => {
+        if (sessionRecord && sessionRecord.is_active === 0) {
+          return res.status(401).json({
+            status: 'error',
+            message: 'Sesi ini telah di-logout dari perangkat lain.'
+          });
+        }
+
+        // 3. Ambil data profil terkini dari database
+        const query = `
+          SELECT 
+            u.id AS userId,
+            u.username,
+            p.nickname,
+            p.farms_managed_count,
+            p.total_orders_completed,
+            p.highest_score,
+            r.rank_name AS current_rank,
+            r.tier_level
+          FROM users u
+          LEFT JOIN player_profiles p ON u.id = p.user_id
+          LEFT JOIN farm_ranks r ON p.current_rank_id = r.id
+          WHERE u.id = ?
+        `;
+
+        db.get(query, [userId], (dbErr, user) => {
+          if (dbErr || !user) {
+            return res.status(404).json({
+              status: 'error',
+              message: 'Akun user tidak ditemukan di database.'
+            });
+          }
+
+          return res.status(200).json({
+            status: 'success',
+            message: 'Sesi valid! Selamat datang kembali di Eden Farm.',
+            userId: user.userId,
+            data: {
+              userId: user.userId,
+              username: user.username,
+              nickname: user.nickname || user.username,
+              rank: user.current_rank || 'Novice Planter',
+              tierLevel: user.tier_level || 1,
+              stats: {
+                farmsManaged: user.farms_managed_count || 0,
+                ordersCompleted: user.total_orders_completed || 0,
+                highestScore: user.highest_score || 0
+              }
+            }
+          });
+        });
+      }
+    );
+  });
+});
+
+// 3.2 Endpoint Logout / Hapus Sesi (POST /api/auth/logout)
+app.post('/api/auth/logout', (req, res) => {
+  const token = extractBearerToken(req) || req.body.token;
+
+  if (!token) {
     return res.status(200).json({
       status: 'success',
-      message: 'Login berhasil! Selamat datang di Eden Farm.',
-      token: token,
-      userId: user.userId,
-      data: {
-        userId: user.userId,
-        username: user.username,
-        nickname: user.nickname || user.username,
-        rank: user.current_rank || 'Novice Planter',
-        tierLevel: user.tier_level || 1,
-        stats: {
-          farmsManaged: user.farms_managed_count || 0,
-          ordersCompleted: user.total_orders_completed || 0,
-          highestScore: user.highest_score || 0
-        }
-      }
+      message: 'Logout berhasil (lokal).'
     });
-  });
+  }
+
+  // Nonaktifkan sesi di database
+  db.run(
+    'UPDATE user_sessions SET is_active = 0 WHERE token = ?',
+    [token],
+    (err) => {
+      if (err) {
+        console.warn('⚠️ Gagal menonaktifkan user_sessions:', err.message);
+      }
+      return res.status(200).json({
+        status: 'success',
+        message: 'Logout berhasil! Sesi perangkat telah dinonaktifkan.'
+      });
+    }
+  );
 });
 
 // Helper function: Update farm_rank otomatis berdasarkan akumulasi total_orders_completed

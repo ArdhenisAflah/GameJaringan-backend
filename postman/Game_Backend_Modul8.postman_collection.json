@@ -276,6 +276,99 @@
 			"response": []
 		},
 		{
+			"name": "Verify Session (Auto-Login)",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Status code is 200 OK\", function () {",
+							"    pm.response.to.have.status(200);",
+							"});",
+							"",
+							"pm.test(\"Session verification returns success\", function () {",
+							"    var jsonData = pm.response.json();",
+							"    pm.expect(jsonData.status).to.eql(\"success\");",
+							"    pm.expect(jsonData.message).to.include(\"Sesi valid\");",
+							"});",
+							"",
+							"pm.test(\"Session verification returns matching userId & profile\", function () {",
+							"    var jsonData = pm.response.json();",
+							"    pm.expect(jsonData.userId).to.eql(pm.environment.get(\"registeredUserId\"));",
+							"    pm.expect(jsonData.data.username).to.eql(pm.environment.get(\"testUsername\"));",
+							"});"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer {{authToken}}"
+					}
+				],
+				"url": {
+					"raw": "{{baseUrl}}/api/auth/verify",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"api",
+						"auth",
+						"verify"
+					]
+				},
+				"description": "Endpoint verifikasi status sesi JWT yang tersimpan di perangkat lokal untuk mekanisme auto-login."
+			},
+			"response": []
+		},
+		{
+			"name": "Logout Session",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Status code is 200 OK\", function () {",
+							"    pm.response.to.have.status(200);",
+							"});",
+							"",
+							"pm.test(\"Logout successfully returns success message\", function () {",
+							"    var jsonData = pm.response.json();",
+							"    pm.expect(jsonData.status).to.eql(\"success\");",
+							"});"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer {{authToken}}"
+					}
+				],
+				"url": {
+					"raw": "{{baseUrl}}/api/auth/logout",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"api",
+						"auth",
+						"logout"
+					]
+				},
+				"description": "Endpoint invalidasi sesi perangkat lokal dan pencatatan status non-aktif pada tabel user_sessions."
+			},
+			"response": []
+		},
+		{
 			"name": "Update Score (POST /api/score/save)",
 			"event": [
 				{
