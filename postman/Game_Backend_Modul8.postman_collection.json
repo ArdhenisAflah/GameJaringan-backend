@@ -2,7 +2,7 @@
 	"info": {
 		"_postman_id": "c1f7a0b5-7c2e-4b6f-8d2a-8d193b2a5ef1",
 		"name": "Game Backend API - Modul 8",
-		"description": "Postman Workspace Collection untuk pengujian Game Backend REST API (Node.js & Express.js) sesuai spesifikasi Modul 8.",
+		"description": "Postman Workspace Collection untuk pengujian Game Backend REST API (Node.js, Express.js & SQLite) mencakup Health Check, Auth Register/Login (Bcrypt & JWT), serta draft Score & Leaderboard.",
 		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
 	},
 	"item": [
@@ -59,19 +59,41 @@
 			"response": []
 		},
 		{
-			"name": "Register Player (Draft)",
+			"name": "Register Player",
 			"event": [
+				{
+					"listen": "prerequest",
+					"script": {
+						"exec": [
+							"// Generate dynamic username agar aman saat testing berulang",
+							"const randomSuffix = Math.floor(Math.random() * 100000);",
+							"pm.environment.set(\"testUsername\", \"player_\" + randomSuffix);"
+						],
+						"type": "text/javascript"
+					}
+				},
 				{
 					"listen": "test",
 					"script": {
 						"exec": [
-							"pm.test(\"Status code is 501 Not Implemented\", function () {",
-							"    pm.response.to.have.status(501);",
+							"pm.test(\"Status code is 201 Created\", function () {",
+							"    pm.response.to.have.status(201);",
 							"});",
 							"",
-							"pm.test(\"Response contains draft message\", function () {",
+							"pm.test(\"Response status is success\", function () {",
 							"    var jsonData = pm.response.json();",
-							"    pm.expect(jsonData.message).to.eql(\"Endpoint /api/register belum diimplementasikan\");",
+							"    pm.expect(jsonData.status).to.eql(\"success\");",
+							"});",
+							"",
+							"pm.test(\"Response returns valid userId\", function () {",
+							"    var jsonData = pm.response.json();",
+							"    pm.expect(jsonData.userId).to.be.a(\"number\");",
+							"    pm.environment.set(\"registeredUserId\", jsonData.userId);",
+							"});",
+							"",
+							"pm.test(\"Player profile initialized with Novice rank\", function () {",
+							"    var jsonData = pm.response.json();",
+							"    pm.expect(jsonData.data.rank).to.eql(\"Novice Planter\");",
 							"});"
 						],
 						"type": "text/javascript"
@@ -88,7 +110,7 @@
 				],
 				"body": {
 					"mode": "raw",
-					"raw": "{\n    \"username\": \"player_test\",\n    \"password\": \"rahasia123\"\n}"
+					"raw": "{\n    \"username\": \"{{testUsername}}\",\n    \"password\": \"rahasia123\",\n    \"nickname\": \"Eden Harvester\",\n    \"birthDate\": \"2002-10-15\"\n}"
 				},
 				"url": {
 					"raw": "{{baseUrl}}/api/register",
@@ -100,24 +122,25 @@
 						"register"
 					]
 				},
-				"description": "Draft endpoint pendaftaran user baru."
+				"description": "Endpoint registrasi akun baru yang menyimpan kredensial ke tabel `users` dan membuat default `player_profiles`."
 			},
 			"response": []
 		},
 		{
-			"name": "Login Player (Draft)",
+			"name": "Register Player - Duplicate Username (Negative Test)",
 			"event": [
 				{
 					"listen": "test",
 					"script": {
 						"exec": [
-							"pm.test(\"Status code is 501 Not Implemented\", function () {",
-							"    pm.response.to.have.status(501);",
+							"pm.test(\"Status code is 409 Conflict\", function () {",
+							"    pm.response.to.have.status(409);",
 							"});",
 							"",
-							"pm.test(\"Response contains draft message\", function () {",
+							"pm.test(\"Response indicates username already in use\", function () {",
 							"    var jsonData = pm.response.json();",
-							"    pm.expect(jsonData.message).to.eql(\"Endpoint /api/login belum diimplementasikan\");",
+							"    pm.expect(jsonData.status).to.eql(\"error\");",
+							"    pm.expect(jsonData.message).to.include(\"Username sudah digunakan\");",
 							"});"
 						],
 						"type": "text/javascript"
@@ -134,7 +157,62 @@
 				],
 				"body": {
 					"mode": "raw",
-					"raw": "{\n    \"username\": \"player_test\",\n    \"password\": \"rahasia123\"\n}"
+					"raw": "{\n    \"username\": \"{{testUsername}}\",\n    \"password\": \"rahasia123\"\n}"
+				},
+				"url": {
+					"raw": "{{baseUrl}}/api/register",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"api",
+						"register"
+					]
+				},
+				"description": "Pengujian pencegahan duplikasi username yang telah terdaftar."
+			},
+			"response": []
+		},
+		{
+			"name": "Login Player - Success",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Status code is 200 OK\", function () {",
+							"    pm.response.to.have.status(200);",
+							"});",
+							"",
+							"pm.test(\"Response returns valid JWT token\", function () {",
+							"    var jsonData = pm.response.json();",
+							"    pm.expect(jsonData.token).to.be.a(\"string\");",
+							"    pm.expect(jsonData.token.length).to.be.above(20);",
+							"    pm.environment.set(\"authToken\", jsonData.token);",
+							"});",
+							"",
+							"pm.test(\"Response contains user data & farm stats\", function () {",
+							"    var jsonData = pm.response.json();",
+							"    pm.expect(jsonData.data.userId).to.eql(jsonData.userId);",
+							"    pm.expect(jsonData.data.stats).to.be.an(\"object\");",
+							"    pm.expect(jsonData.data.stats.farmsManaged).to.be.a(\"number\");",
+							"});"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"username\": \"{{testUsername}}\",\n    \"password\": \"rahasia123\"\n}"
 				},
 				"url": {
 					"raw": "{{baseUrl}}/api/login",
@@ -146,7 +224,54 @@
 						"login"
 					]
 				},
-				"description": "Draft endpoint autentikasi pemain."
+				"description": "Endpoint autentikasi login pemain menggunakan username dan password terenkripsi bcrypt, menghasilkan Bearer token JWT."
+			},
+			"response": []
+		},
+		{
+			"name": "Login Player - Invalid Password (Negative Test)",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Status code is 401 Unauthorized\", function () {",
+							"    pm.response.to.have.status(401);",
+							"});",
+							"",
+							"pm.test(\"Response error message on invalid credentials\", function () {",
+							"    var jsonData = pm.response.json();",
+							"    pm.expect(jsonData.status).to.eql(\"error\");",
+							"    pm.expect(jsonData.message).to.eql(\"Username atau password tidak valid!\");",
+							"});"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"username\": \"{{testUsername}}\",\n    \"password\": \"salah_password\"\n}"
+				},
+				"url": {
+					"raw": "{{baseUrl}}/api/login",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"api",
+						"login"
+					]
+				},
+				"description": "Pengujian penolakan autentikasi jika kredensial password salah."
 			},
 			"response": []
 		},
