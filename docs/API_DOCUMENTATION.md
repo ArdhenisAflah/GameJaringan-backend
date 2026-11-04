@@ -15,8 +15,10 @@ Backend REST API untuk Game Multiplayer **Eden Farm** berbasis Node.js, Express.
 | `GET` | `/api/health` | Health Check Server | `200 OK` | Memeriksa ketersediaan server |
 | `POST` | `/api/register` | Pendaftaran Akun Pemain | `201 Created` / `400` / `409` | Menyimpan ke tabel `users` & `player_profiles` |
 | `POST` | `/api/login` | Login Autentikasi Pemain | `200 OK` / `400` / `401` | Validasi Bcrypt & menerbitkan JWT Token |
-| `POST` | `/api/score/save` | Simpan Skor Match (Draft) | `501 Not Implemented` | Tahap pengembangan berikutnya |
-| `GET` | `/api/leaderboard` | Top 10 Skor (Draft) | `501 Not Implemented` | Tahap pengembangan berikutnya |
+| `POST` | `/api/score/save` | Update / Simpan Skor Match | `200 OK` / `400` / `404` | Menyimpan ke `scores` & update profil/rank |
+| `PUT` | `/api/score/user/:userId` | Update Skor via Param URL | `200 OK` / `400` / `404` | RESTful alternatif untuk update skor user |
+| `GET` | `/api/score/user/:userId` | View Skor per User ID | `200 OK` / `400` / `404` | Mengambil statistik profil & 5 riwayat match |
+| `GET` | `/api/leaderboard` | View Scoreboard Top 10 | `200 OK` | Papan peringkat global (skor & pesanan) |
 
 ---
 
@@ -27,10 +29,7 @@ Memeriksa status aktif server game backend.
 
 - **URL:** `/api/health`
 - **Method:** `GET`
-- **Headers:** *(None)*
-- **Body:** *(None)*
-
-**Response Sukses (`200 OK`):**
+- **Response (`200 OK`):**
 ```json
 {
   "status": "success",
@@ -41,14 +40,11 @@ Memeriksa status aktif server game backend.
 
 ---
 
-### 2. Registrasi Akun Player (`/api/register`)
+### 2. Registrasi Akun Player (`POST /api/register`)
 Mendaftarkan akun baru. Password dienkripsi dengan **Bcrypt (10 salt rounds)** ke tabel `users`, dan otomatis membuat profil awal di tabel `player_profiles` dengan tier default `Novice Planter`.
 
-- **URL:** `/api/register`
-- **Method:** `POST`
 - **Headers:** `Content-Type: application/json`
-
-**Request Body (JSON):**
+- **Request Body (JSON):**
 ```json
 {
   "username": "farmer_budi",
@@ -57,9 +53,7 @@ Mendaftarkan akun baru. Password dienkripsi dengan **Bcrypt (10 salt rounds)** k
   "birthDate": "2002-08-17"
 }
 ```
-*Catatan:* Field `nickname` dan `birthDate` bersifat opsional. Jika `nickname` kosong, akan menggunakan nilai `username`.
-
-**Response Sukses (`201 Created`):**
+- **Response Sukses (`201 Created`):**
 ```json
 {
   "status": "success",
@@ -74,40 +68,20 @@ Mendaftarkan akun baru. Password dienkripsi dengan **Bcrypt (10 salt rounds)** k
 }
 ```
 
-**Response Error - Duplikasi Username (`409 Conflict`):**
-```json
-{
-  "status": "error",
-  "message": "Username sudah digunakan, silakan pilih username lain!"
-}
-```
-
-**Response Error - Validasi Input (`400 Bad Request`):**
-```json
-{
-  "status": "error",
-  "message": "Username dan password wajib diisi!"
-}
-```
-
 ---
 
-### 3. Login Autentikasi Player (`/api/login`)
+### 3. Login Autentikasi Player (`POST /api/login`)
 Memverifikasi username dan password pemain. Jika valid, mengembalikan kredensial user, data profil & statistik in-game, serta **JSON Web Token (JWT)** dengan masa berlaku 24 jam.
 
-- **URL:** `/api/login`
-- **Method:** `POST`
 - **Headers:** `Content-Type: application/json`
-
-**Request Body (JSON):**
+- **Request Body (JSON):**
 ```json
 {
   "username": "farmer_budi",
   "password": "secretpassword123"
 }
 ```
-
-**Response Sukses (`200 OK`):**
+- **Response Sukses (`200 OK`):**
 ```json
 {
   "status": "success",
@@ -129,47 +103,126 @@ Memverifikasi username dan password pemain. Jika valid, mengembalikan kredensial
 }
 ```
 
-**Response Error - Kredensial Salah (`401 Unauthorized`):**
+---
+
+### 4. Update / Simpan Skor Match (`POST /api/score/save` atau `PUT /api/score/user/:userId`)
+Mencatat hasil match pemain ke tabel `scores` (Relasi 1:N), memperbarui agregat di `player_profiles` (`highest_score`, `farms_managed_count` bertambah 1, `total_orders_completed`), dan secara otomatis mengevaluasi kenaikan tier `farm_ranks` pemain.
+
+- **Headers:** `Content-Type: application/json`
+- **Request Body (JSON):**
 ```json
 {
-  "status": "error",
-  "message": "Username atau password tidak valid!"
+  "userId": 1,
+  "score": 350,
+  "ordersCompleted": 40,
+  "cropsHarvested": 60,
+  "ordersLoaded": 40,
+  "sessionId": "room-eden-01"
+}
+```
+*Catatan:* Pada endpoint `PUT /api/score/user/:userId`, `userId` dapat diambil langsung dari parameter URL.
+
+- **Response Sukses (`200 OK`):**
+```json
+{
+  "status": "success",
+  "message": "Skor berhasil diperbarui dan disimpan!",
+  "scoreRecordId": 1,
+  "addedScore": 350,
+  "playerStats": {
+    "userId": 1,
+    "username": "farmer_budi",
+    "nickname": "Budi Si Petani",
+    "highestScore": 350,
+    "farmsManaged": 1,
+    "totalOrdersCompleted": 40,
+    "currentRank": "Apprentice Farmer",
+    "tierLevel": 2
+  }
 }
 ```
 
 ---
 
-### 4. Simpan Skor Akhir Match (`/api/score/save` - Draft)
-- **URL:** `/api/score/save`
-- **Method:** `POST`
-- **Body:** `{"userId": 1, "score": 100}`
-- **Response (`501 Not Implemented`):**
+### 5. View Skor per User ID (`GET /api/score/user/:userId`)
+Mengambil skor terbaik personal, akumulasi skor sepanjang waktu, rank tier saat ini, badge URL, total match yang dimainkan, serta 5 riwayat match terakhir pemain.
+
+- **URL:** `/api/score/user/1`
+- **Method:** `GET`
+- **Response Sukses (`200 OK`):**
 ```json
 {
-  "message": "Endpoint /api/score/save belum diimplementasikan"
+  "status": "success",
+  "message": "Data skor pemain Budi Si Petani berhasil diambil.",
+  "data": {
+    "userId": 1,
+    "username": "farmer_budi",
+    "nickname": "Budi Si Petani",
+    "highestScore": 350,
+    "cumulativeScore": 350,
+    "rank": "Apprentice Farmer",
+    "tierLevel": 2,
+    "badgeIconUrl": "badges/apprentice.png",
+    "stats": {
+      "farmsManaged": 1,
+      "totalOrdersCompleted": 40,
+      "totalMatchesPlayed": 1
+    },
+    "recentMatches": [
+      {
+        "id": 1,
+        "sessionId": "room-eden-01",
+        "score": 350,
+        "cropsHarvested": 60,
+        "ordersLoaded": 40,
+        "recordedAt": "2026-11-04 09:21:33"
+      }
+    ]
+  }
 }
 ```
 
 ---
 
-### 5. Leaderboard Global (`/api/leaderboard` - Draft)
+### 6. View Scoreboard / Leaderboard Top 10 (`GET /api/leaderboard`)
+Mengambil peringkat 10 pemain terbaik global berdasarkan skor tertinggi (`highest_score DESC`) dan total pesanan yang diselesaikan (`total_orders_completed DESC`).
+
 - **URL:** `/api/leaderboard`
 - **Method:** `GET`
-- **Response (`501 Not Implemented`):**
+- **Response Sukses (`200 OK`):**
 ```json
 {
-  "message": "Endpoint /api/leaderboard belum diimplementasikan"
+  "status": "success",
+  "message": "Leaderboard Top 10 Eden Farm berhasil diambil.",
+  "totalEntries": 2,
+  "data": [
+    {
+      "position": 1,
+      "userId": 1,
+      "username": "farmer_budi",
+      "nickname": "Budi Si Petani",
+      "score": 350,
+      "rank": "Apprentice Farmer",
+      "tierLevel": 2,
+      "badgeIconUrl": "badges/apprentice.png",
+      "stats": {
+        "ordersCompleted": 40,
+        "farmsManaged": 1
+      }
+    }
+  ]
 }
 ```
 
 ---
 
-## 📮 Pengujian via Postman CLI (Newman)
+## 📮 Pengujian Otomatis via Newman CLI
 
-Seluruh pengujian endpoint (Health Check, Register Positif/Negatif, Login Positif/Negatif, Drafts) dapat dijalankan langsung melalui CLI:
+Seluruh pengujian endpoint (Health Check, Register, Login, Update Score POST & PUT, View Score, Leaderboard) dapat dijalankan:
 
 ```bash
 npm test
 ```
-File collection: [`postman/Game_Backend_Modul8.postman_collection.json`](./postman/Game_Backend_Modul8.postman_collection.json)  
-File environment: [`postman/Local_Environment.postman_environment.json`](./postman/Local_Environment.postman_environment.json)
+- **Total Requests:** 9
+- **Total Assertions:** 27
+- **Status:** 100% Passed

@@ -2,7 +2,7 @@
 	"info": {
 		"_postman_id": "c1f7a0b5-7c2e-4b6f-8d2a-8d193b2a5ef1",
 		"name": "Game Backend API - Modul 8",
-		"description": "Postman Workspace Collection untuk pengujian Game Backend REST API (Node.js, Express.js & SQLite) mencakup Health Check, Auth Register/Login (Bcrypt & JWT), serta draft Score & Leaderboard.",
+		"description": "Postman Workspace Collection untuk pengujian Game Backend REST API (Node.js, Express.js & SQLite) mencakup Health Check, Auth Register/Login (Bcrypt & JWT), serta Score Management (Update Score, View Score per User, Top 10 Leaderboard).",
 		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
 	},
 	"item": [
@@ -276,19 +276,25 @@
 			"response": []
 		},
 		{
-			"name": "Save Score (Draft)",
+			"name": "Update Score (POST /api/score/save)",
 			"event": [
 				{
 					"listen": "test",
 					"script": {
 						"exec": [
-							"pm.test(\"Status code is 501 Not Implemented\", function () {",
-							"    pm.response.to.have.status(501);",
+							"pm.test(\"Status code is 200 OK\", function () {",
+							"    pm.response.to.have.status(200);",
 							"});",
 							"",
-							"pm.test(\"Response contains draft message\", function () {",
+							"pm.test(\"Response status is success\", function () {",
 							"    var jsonData = pm.response.json();",
-							"    pm.expect(jsonData.message).to.eql(\"Endpoint /api/score/save belum diimplementasikan\");",
+							"    pm.expect(jsonData.status).to.eql(\"success\");",
+							"});",
+							"",
+							"pm.test(\"Response updates player highest score and stats\", function () {",
+							"    var jsonData = pm.response.json();",
+							"    pm.expect(jsonData.playerStats.highestScore).to.be.at.least(150);",
+							"    pm.expect(jsonData.playerStats.farmsManaged).to.be.at.least(1);",
 							"});"
 						],
 						"type": "text/javascript"
@@ -305,7 +311,7 @@
 				],
 				"body": {
 					"mode": "raw",
-					"raw": "{\n    \"userId\": 1,\n    \"score\": 100\n}"
+					"raw": "{\n    \"userId\": {{registeredUserId}},\n    \"score\": 350,\n    \"ordersCompleted\": 40,\n    \"cropsHarvested\": 60,\n    \"ordersLoaded\": 40\n}"
 				},
 				"url": {
 					"raw": "{{baseUrl}}/api/score/save",
@@ -318,24 +324,129 @@
 						"save"
 					]
 				},
-				"description": "Draft endpoint penyimpanan skor akhir match pemain."
+				"description": "Endpoint menyimpan skor perolehan match dan memperbarui statistik profil serta evaluasi kenaikan tier rank."
 			},
 			"response": []
 		},
 		{
-			"name": "Leaderboard (Draft)",
+			"name": "Update Score (PUT /api/score/user/:userId)",
 			"event": [
 				{
 					"listen": "test",
 					"script": {
 						"exec": [
-							"pm.test(\"Status code is 501 Not Implemented\", function () {",
-							"    pm.response.to.have.status(501);",
+							"pm.test(\"Status code is 200 OK\", function () {",
+							"    pm.response.to.have.status(200);",
 							"});",
 							"",
-							"pm.test(\"Response contains draft message\", function () {",
+							"pm.test(\"Response status is success\", function () {",
 							"    var jsonData = pm.response.json();",
-							"    pm.expect(jsonData.message).to.eql(\"Endpoint /api/leaderboard belum diimplementasikan\");",
+							"    pm.expect(jsonData.status).to.eql(\"success\");",
+							"});",
+							"",
+							"pm.test(\"Response returns updated scoreRecordId\", function () {",
+							"    var jsonData = pm.response.json();",
+							"    pm.expect(jsonData.scoreRecordId).to.be.a(\"number\");",
+							"});"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "PUT",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"score\": 500,\n    \"ordersCompleted\": 65,\n    \"cropsHarvested\": 80,\n    \"ordersLoaded\": 65\n}"
+				},
+				"url": {
+					"raw": "{{baseUrl}}/api/score/user/{{registeredUserId}}",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"api",
+						"score",
+						"user",
+						"{{registeredUserId}}"
+					]
+				},
+				"description": "Endpoint RESTful PUT untuk mengupdate skor pemain berdasarkan parameter userId pada URL."
+			},
+			"response": []
+		},
+		{
+			"name": "View Score per User ID",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Status code is 200 OK\", function () {",
+							"    pm.response.to.have.status(200);",
+							"});",
+							"",
+							"pm.test(\"Response contains full player score & match history\", function () {",
+							"    var jsonData = pm.response.json();",
+							"    pm.expect(jsonData.status).to.eql(\"success\");",
+							"    pm.expect(jsonData.data.userId).to.eql(pm.environment.get(\"registeredUserId\"));",
+							"    pm.expect(jsonData.data.highestScore).to.be.at.least(350);",
+							"    pm.expect(jsonData.data.recentMatches).to.be.an(\"array\");",
+							"});"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/api/score/user/{{registeredUserId}}",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"api",
+						"score",
+						"user",
+						"{{registeredUserId}}"
+					]
+				},
+				"description": "Mengambil detail skor, akumulasi poin, rank saat ini, serta riwayat match terakhir pemain berdasarkan user ID."
+			},
+			"response": []
+		},
+		{
+			"name": "View Scoreboard Top 10",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Status code is 200 OK\", function () {",
+							"    pm.response.to.have.status(200);",
+							"});",
+							"",
+							"pm.test(\"Response contains array of leaderboard data\", function () {",
+							"    var jsonData = pm.response.json();",
+							"    pm.expect(jsonData.status).to.eql(\"success\");",
+							"    pm.expect(jsonData.data).to.be.an(\"array\");",
+							"    pm.expect(jsonData.data.length).to.be.at.most(10);",
+							"});",
+							"",
+							"pm.test(\"First leaderboard entry has position 1\", function () {",
+							"    var jsonData = pm.response.json();",
+							"    if (jsonData.data.length > 0) {",
+							"        pm.expect(jsonData.data[0].position).to.eql(1);",
+							"        pm.expect(jsonData.data[0].score).to.be.a(\"number\");",
+							"    }",
 							"});"
 						],
 						"type": "text/javascript"
@@ -355,7 +466,7 @@
 						"leaderboard"
 					]
 				},
-				"description": "Draft endpoint leaderboard (top 10 skor tertinggi)."
+				"description": "Mengambil papan peringkat global (Leaderboard Top 10) diurutkan berdasarkan skor tertinggi dan total pesanan yang selesai."
 			},
 			"response": []
 		}

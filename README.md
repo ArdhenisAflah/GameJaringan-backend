@@ -49,8 +49,10 @@ Dokumentasi lengkap dan contoh JSON tersedia di [`docs/API_DOCUMENTATION.md`](./
 | **GET** | `/api/health` | Health Check Server | *(None)* | `200 OK` | `{"status":"success","message":"...","serverTime":"..."}` |
 | **POST** | `/api/register` | Registrasi Akun Pemain Baru | `{"username":"string","password":"string"}` | `201 Created` | `{"status":"success","userId":1,"data":{...}}` |
 | **POST** | `/api/login` | Login Autentikasi Pemain | `{"username":"string","password":"string"}` | `200 OK` | `{"status":"success","token":"JWT_TOKEN","userId":1,"data":{...}}` |
-| **POST** | `/api/score/save` | Draft Simpan Skor | `{"userId":1,"score":100}` | `501 Not Implemented` | `{"message":"Endpoint /api/score/save belum diimplementasikan"}` |
-| **GET** | `/api/leaderboard`| Draft Papan Skor | *(None)* | `501 Not Implemented` | `{"message":"Endpoint /api/leaderboard belum diimplementasikan"}` |
+| **POST** | `/api/score/save` | Update / Simpan Skor Match | `{"userId":1,"score":100}` | `200 OK` | `{"status":"success","scoreRecordId":1,...}` |
+| **PUT** | `/api/score/user/:userId` | Update Skor via Parameter URL | `{"score":100}` | `200 OK` | `{"status":"success","scoreRecordId":1,...}` |
+| **GET** | `/api/score/user/:userId` | View Skor Pemain per User ID | *(None)* | `200 OK` | `{"status":"success","data":{...}}` |
+| **GET** | `/api/leaderboard`| View Scoreboard Top 10 | *(None)* | `200 OK` | `{"status":"success","data":[{...}]}` |
 
 ---
 

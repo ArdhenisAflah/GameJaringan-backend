@@ -232,17 +232,302 @@ app.post('/api/login', (req, res) => {
   });
 });
 
-// 4. Draft Endpoint Penyimpanan Skor Akhir Match
-app.post('/api/score/save', (req, res) => {
-  res.status(501).json({
-    message: 'Endpoint /api/score/save belum diimplementasikan'
+// Helper function: Update farm_rank otomatis berdasarkan akumulasi total_orders_completed
+function updatePlayerRankTier(userId) {
+  const profileQuery = `
+    SELECT total_orders_completed 
+    FROM player_profiles 
+    WHERE user_id = ?
+  `;
+
+  db.get(profileQuery, [userId], (err, profile) => {
+    if (err || !profile) return;
+
+    // Cari tier tertinggi yang syarat min_orders_required <= total_orders_completed
+    const rankQuery = `
+      SELECT id 
+      FROM farm_ranks 
+      WHERE min_orders_required <= ? 
+      ORDER BY tier_level DESC 
+      LIMIT 1
+    `;
+
+    db.get(rankQuery, [profile.total_orders_completed || 0], (rankErr, rank) => {
+      if (rankErr || !rank) return;
+
+      db.run(
+        'UPDATE player_profiles SET current_rank_id = ? WHERE user_id = ?',
+        [rank.id, userId]
+      );
+    });
+  });
+}
+
+// ==========================================
+// Score Management Endpoints
+// ==========================================
+
+// 4. Update / Simpan Skor Match per User Id (POST /api/score/save atau PUT /api/score/user/:userId)
+const handleSaveOrUpdateScore = (req, res) => {
+  const targetUserId = parseInt(req.params.userId || req.body.userId, 10);
+  const { score, ordersCompleted, ordersFailed, cropsHarvested, ordersLoaded, sessionId } = req.body;
+
+  if (isNaN(targetUserId)) {
+    return res.status(400).json({
+      status: 'error',
+      message: 'userId harus berupa angka numerik yang valid!'
+    });
+  }
+
+  const numericScore = typeof score === 'number' ? score : parseInt(score, 10);
+  if (isNaN(numericScore)) {
+    return res.status(400).json({
+      status: 'error',
+      message: 'score harus berupa angka numerik yang valid!'
+    });
+  }
+
+  const cleanOrdersCompleted = parseInt(ordersCompleted, 10) || 0;
+  const cleanOrdersFailed = parseInt(ordersFailed, 10) || 0;
+  const cleanCropsHarvested = parseInt(cropsHarvested, 10) || 0;
+  const cleanOrdersLoaded = parseInt(ordersLoaded, 10) || 0;
+  const cleanSessionId = sessionId ? String(sessionId) : null;
+
+  // 1. Pastikan user ada di database
+  db.get('SELECT id FROM users WHERE id = ?', [targetUserId], (userErr, user) => {
+    if (userErr) {
+      return res.status(500).json({
+        status: 'error',
+        message: 'Terjadi kesalahan saat memeriksa user di database.',
+        error: userErr.message
+      });
+    }
+
+    if (!user) {
+      return res.status(404).json({
+        status: 'error',
+        message: `User dengan ID ${targetUserId} tidak ditemukan!`
+      });
+    }
+
+    // 2. Simpan record perolehan skor ke tabel 'scores' (Relasi 1:N)
+    const insertScoreSql = `
+      INSERT INTO scores (user_id, session_id, individual_score, crops_harvested, orders_loaded)
+      VALUES (?, ?, ?, ?, ?)
+    `;
+
+    db.run(
+      insertScoreSql,
+      [targetUserId, cleanSessionId, numericScore, cleanCropsHarvested, cleanOrdersLoaded],
+      function (scoreErr) {
+        if (scoreErr) {
+          return res.status(500).json({
+            status: 'error',
+            message: 'Gagal mencatat riwayat skor match.',
+            error: scoreErr.message
+          });
+        }
+
+        const scoreRecordId = this.lastID;
+
+        // 3. Update agregat profil pemain (farms_managed_count + 1, total_orders_completed, highest_score)
+        const updateProfileSql = `
+          UPDATE player_profiles
+          SET 
+            farms_managed_count = farms_managed_count + 1,
+            total_orders_completed = total_orders_completed + ?,
+            highest_score = CASE WHEN ? > highest_score THEN ? ELSE highest_score END
+          WHERE user_id = ?
+        `;
+
+        db.run(
+          updateProfileSql,
+          [cleanOrdersCompleted, numericScore, numericScore, targetUserId],
+          (updateErr) => {
+            if (updateErr) {
+              console.error('Peringatan: Gagal memperbarui statistik player_profiles:', updateErr.message);
+            }
+
+            // Evaluasi kenaikan tier/rank otomatis
+            updatePlayerRankTier(targetUserId);
+
+            // 4. Ambil statistik profil ter-update untuk dikembalikan ke game client
+            const getUpdatedQuery = `
+              SELECT 
+                p.user_id AS userId,
+                u.username,
+                p.nickname,
+                p.highest_score AS highestScore,
+                p.farms_managed_count AS farmsManaged,
+                p.total_orders_completed AS totalOrdersCompleted,
+                r.rank_name AS currentRank,
+                r.tier_level AS tierLevel
+              FROM player_profiles p
+              JOIN users u ON p.user_id = u.id
+              LEFT JOIN farm_ranks r ON p.current_rank_id = r.id
+              WHERE p.user_id = ?
+            `;
+
+            db.get(getUpdatedQuery, [targetUserId], (fetchErr, updatedData) => {
+              return res.status(200).json({
+                status: 'success',
+                message: 'Skor berhasil diperbarui dan disimpan!',
+                scoreRecordId: scoreRecordId,
+                addedScore: numericScore,
+                playerStats: updatedData || {
+                  userId: targetUserId,
+                  score: numericScore
+                }
+              });
+            });
+          }
+        );
+      }
+    );
+  });
+};
+
+// Route kompatibel dengan spesifikasi Modul 8 & RESTful parameter
+app.post('/api/score/save', handleSaveOrUpdateScore);
+app.put('/api/score/user/:userId', handleSaveOrUpdateScore);
+
+// 5. View Score & Statistik per User ID (GET /api/score/user/:userId)
+app.get('/api/score/user/:userId', (req, res) => {
+  const targetUserId = parseInt(req.params.userId, 10);
+
+  if (isNaN(targetUserId)) {
+    return res.status(400).json({
+      status: 'error',
+      message: 'userId harus berupa angka integer!'
+    });
+  }
+
+  const query = `
+    SELECT 
+      u.id AS userId,
+      u.username,
+      p.nickname,
+      p.highest_score AS highestScore,
+      p.farms_managed_count AS farmsManaged,
+      p.total_orders_completed AS totalOrdersCompleted,
+      r.rank_name AS currentRank,
+      r.tier_level AS tierLevel,
+      r.badge_icon_url AS badgeIconUrl,
+      (SELECT COUNT(*) FROM scores WHERE user_id = u.id) AS totalMatchesPlayed,
+      (SELECT COALESCE(SUM(individual_score), 0) FROM scores WHERE user_id = u.id) AS cumulativeScore
+    FROM users u
+    LEFT JOIN player_profiles p ON u.id = p.user_id
+    LEFT JOIN farm_ranks r ON p.current_rank_id = r.id
+    WHERE u.id = ?
+  `;
+
+  db.get(query, [targetUserId], (err, row) => {
+    if (err) {
+      return res.status(500).json({
+        status: 'error',
+        message: 'Terjadi kesalahan pada database.',
+        error: err.message
+      });
+    }
+
+    if (!row) {
+      return res.status(404).json({
+        status: 'error',
+        message: `Pemain dengan ID ${targetUserId} tidak ditemukan!`
+      });
+    }
+
+    // Ambil juga 5 riwayat match terakhir pemain
+    const matchHistoryQuery = `
+      SELECT 
+        id,
+        session_id AS sessionId,
+        individual_score AS score,
+        crops_harvested AS cropsHarvested,
+        orders_loaded AS ordersLoaded,
+        recorded_at AS recordedAt
+      FROM scores
+      WHERE user_id = ?
+      ORDER BY id DESC
+      LIMIT 5
+    `;
+
+    db.all(matchHistoryQuery, [targetUserId], (histErr, historyRows) => {
+      return res.status(200).json({
+        status: 'success',
+        message: `Data skor pemain ${row.nickname || row.username} berhasil diambil.`,
+        data: {
+          userId: row.userId,
+          username: row.username,
+          nickname: row.nickname || row.username,
+          highestScore: row.highestScore || 0,
+          cumulativeScore: row.cumulativeScore || 0,
+          rank: row.currentRank || 'Novice Planter',
+          tierLevel: row.tierLevel || 1,
+          badgeIconUrl: row.badgeIconUrl,
+          stats: {
+            farmsManaged: row.farmsManaged || 0,
+            totalOrdersCompleted: row.totalOrdersCompleted || 0,
+            totalMatchesPlayed: row.totalMatchesPlayed || 0
+          },
+          recentMatches: historyRows || []
+        }
+      });
+    });
   });
 });
 
-// 5. Draft Endpoint Leaderboard (Top Skor)
+// 6. View Scoreboard / Leaderboard Top 10 (GET /api/leaderboard)
 app.get('/api/leaderboard', (req, res) => {
-  res.status(501).json({
-    message: 'Endpoint /api/leaderboard belum diimplementasikan'
+  const query = `
+    SELECT 
+      u.id AS userId,
+      u.username,
+      COALESCE(p.nickname, u.username) AS nickname,
+      COALESCE(p.highest_score, 0) AS score,
+      COALESCE(p.total_orders_completed, 0) AS ordersCompleted,
+      COALESCE(p.farms_managed_count, 0) AS farmsManaged,
+      COALESCE(r.rank_name, 'Novice Planter') AS rank,
+      COALESCE(r.tier_level, 1) AS tierLevel,
+      r.badge_icon_url AS badgeIconUrl
+    FROM users u
+    JOIN player_profiles p ON u.id = p.user_id
+    LEFT JOIN farm_ranks r ON p.current_rank_id = r.id
+    ORDER BY p.highest_score DESC, p.total_orders_completed DESC
+    LIMIT 10
+  `;
+
+  db.all(query, [], (err, rows) => {
+    if (err) {
+      return res.status(500).json({
+        status: 'error',
+        message: 'Gagal memuat papan peringkat (leaderboard).',
+        error: err.message
+      });
+    }
+
+    // Tambahkan posisi ranking numerik (1, 2, 3, ...)
+    const rankedData = (rows || []).map((item, index) => ({
+      position: index + 1,
+      userId: item.userId,
+      username: item.username,
+      nickname: item.nickname,
+      score: item.score,
+      rank: item.rank,
+      tierLevel: item.tierLevel,
+      badgeIconUrl: item.badgeIconUrl,
+      stats: {
+        ordersCompleted: item.ordersCompleted,
+        farmsManaged: item.farmsManaged
+      }
+    }));
+
+    return res.status(200).json({
+      status: 'success',
+      message: 'Leaderboard Top 10 Eden Farm berhasil diambil.',
+      totalEntries: rankedData.length,
+      data: rankedData
+    });
   });
 });
 
