@@ -1,0 +1,9 @@
+node_modules
+.git
+.env
+.env.*
+game.db
+*.db-wal
+*.db-shm
+data/
+npm-debug.log

@@ -1,0 +1,15 @@
+
+services:
+  backend:
+    build: .
+    restart: unless-stopped
+
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+
+    ports:
+      - "127.0.0.1:3000:3000"
+
+    volumes:
+      - ./data/game.db:/app/game.db
