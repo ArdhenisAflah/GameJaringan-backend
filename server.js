@@ -84,6 +84,39 @@ const jwt = require('jsonwebtoken');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'eden_farm_fallback_secret_key_2026';
 
+if (process.env.NODE_ENV === 'production' && !process.env.JWT_SECRET) {
+  throw new Error('JWT_SECRET must be set when NODE_ENV=production.');
+}
+
+// Require a valid login token for routes that read or write private player data.
+function requireAuth(req, res, next) {
+  const token = extractBearerToken(req);
+
+  if (!token) {
+    return res.status(401).json({ status: 'error', message: 'Bearer token wajib disediakan.' });
+  }
+
+  jwt.verify(token, JWT_SECRET, (jwtErr, decoded) => {
+    if (jwtErr) {
+      return res.status(401).json({ status: 'error', message: 'Token tidak valid atau sudah kedaluwarsa.' });
+    }
+
+    // If a session row exists, respect logout/revocation. Tokens whose session
+    // could not be recorded at login retain the existing JWT-only behavior.
+    db.get('SELECT is_active FROM user_sessions WHERE token = ?', [token], (sessionErr, session) => {
+      if (sessionErr) {
+        return res.status(500).json({ status: 'error', message: 'Gagal memeriksa sesi login.' });
+      }
+      if (session && session.is_active === 0) {
+        return res.status(401).json({ status: 'error', message: 'Sesi ini sudah logout.' });
+      }
+
+      req.auth = decoded;
+      next();
+    });
+  });
+}
+
 // 2. Endpoint Registrasi Akun Player Baru
 app.post('/api/register', async (req, res) => {
   const { username, password, nickname, birthDate } = req.body;
@@ -453,8 +486,16 @@ function updatePlayerRankTier(userId) {
 
 // 4. Update / Simpan Skor Match per User Id (POST /api/score/save atau PUT /api/score/user/:userId)
 const handleSaveOrUpdateScore = (req, res) => {
-  const targetUserId = parseInt(req.params.userId || req.body.userId, 10);
+  const requestedUserId = req.params.userId || req.body.userId;
+  const targetUserId = Number(req.auth.userId);
   const { score, ordersCompleted, ordersFailed, cropsHarvested, ordersLoaded, sessionId } = req.body;
+
+  if (requestedUserId !== undefined && parseInt(requestedUserId, 10) !== targetUserId) {
+    return res.status(403).json({
+      status: 'error',
+      message: 'Kamu hanya dapat menyimpan skor untuk akunmu sendiri.'
+    });
+  }
 
   if (isNaN(targetUserId)) {
     return res.status(400).json({
@@ -572,17 +613,24 @@ const handleSaveOrUpdateScore = (req, res) => {
 };
 
 // Route kompatibel dengan spesifikasi Modul 8 & RESTful parameter
-app.post('/api/score/save', handleSaveOrUpdateScore);
-app.put('/api/score/user/:userId', handleSaveOrUpdateScore);
+app.post('/api/score/save', requireAuth, handleSaveOrUpdateScore);
+app.put('/api/score/user/:userId', requireAuth, handleSaveOrUpdateScore);
 
 // 5. View Score & Statistik per User ID (GET /api/score/user/:userId)
-app.get('/api/score/user/:userId', (req, res) => {
+app.get('/api/score/user/:userId', requireAuth, (req, res) => {
   const targetUserId = parseInt(req.params.userId, 10);
 
   if (isNaN(targetUserId)) {
     return res.status(400).json({
       status: 'error',
       message: 'userId harus berupa angka integer!'
+    });
+  }
+
+  if (targetUserId !== Number(req.auth.userId)) {
+    return res.status(403).json({
+      status: 'error',
+      message: 'Kamu hanya dapat melihat data skor akunmu sendiri.'
     });
   }
 
